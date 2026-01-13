@@ -179,44 +179,43 @@ git push origin egc_test
 ## Intensificación Técnica (8-10)
 
 ### 8. Configurar releases automáticas
-- **Cambio:** Crear nuevo job `release` (líneas 101-115) que se dispara automáticamente al pushear tags con patrón `v*`.
+- **Cambio:** Crear nuevo job `release` (líneas 109-122) que se dispara automáticamente en cada push a `egc_test`.
 
-**Estructura completa del job (líneas 101-115):**
+**Estructura completa del job (líneas 109-122):**
 ```yaml
 release:
-  needs: [ tests, build ]               # Espera a que ambos jobs terminen
+  needs: [ tests, build, cobertura ]           # Espera a que los 3 jobs terminen
   runs-on: ubuntu-latest
-  if: startsWith(github.ref, 'refs/tags/v')  # Solo en tags que comiencen con 'v'
+  if: github.ref == 'refs/heads/egc_test'      # Se ejecuta en cada push a egc_test
   steps:
-    - uses: actions/checkout@v4         # Descarga el código del tag
+    - uses: actions/checkout@v4                # Descarga el código
     - name: Create Release
-      uses: softprops/action-gh-release@v1  # Action oficial para crear releases
+      uses: softprops/action-gh-release@v1     # Action oficial para crear releases
       with:
-        name: Release ${{ github.ref_name }}  # Nombre: "Release v1.0.0"
-        draft: false                    # No como borrador
-        prerelease: false               # Versión estable
+        name: Release ${{ github.ref_name }}   # Nombre: "Release egc_test"
+        draft: false                           # No como borrador
+        prerelease: false                      # Versión estable
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Token automático de GitHub
 ```
 
 **Detalles técnicos:**
 
-1. **Trigger Condicional:**
-   - `if: startsWith(github.ref, 'refs/tags/v')` → Solo ejecuta si el ref es un tag que empieza con `v`
-   - Ejemplos que disparan: `v1.0.0`, `v2.1.0`, `v0.0.1-beta`
-   - Ejemplos que NO disparan: `version1`, `release-1`, tags sin `v`
+1. **Trigger Automático:**
+   - `if: github.ref == 'refs/heads/egc_test'` → Se ejecuta **automáticamente en cada push a egc_test**
+   - No requiere intervención manual
 
 2. **Dependencias:**
-   - `needs: [ tests, build ]` → Espera a que ambos jobs completen exitosamente
-   - Si `tests` o `build` falla, este job no se ejecuta
+   - `needs: [ tests, build, cobertura ]` → Espera a que los 3 jobs completen exitosamente
+   - Si alguno falla, este job no se ejecuta
 
 3. **Action Utilizada:**
    - `softprops/action-gh-release@v1` → Librería de terceros para crear releases en GitHub
-   - Alternativa: usar API de GitHub directamente
+   - Crea automáticamente un release con el nombre y configuración indicada
 
 4. **Variables Dinámicas:**
-   - `${{ github.ref_name }}` → Extrae el nombre del tag (ej: `v1.0.0`)
-   - `${{ secrets.GITHUB_TOKEN }}` → Token automático para autenticación (no requiere configuración manual)
+   - `${{ github.ref_name }}` → Nombre del branch (ej: `egc_test`)
+   - `${{ secrets.GITHUB_TOKEN }}` → Token automático para autenticación
 
 5. **Opciones:**
    - `draft: false` → Release visible inmediatamente (no borrador)
@@ -228,59 +227,25 @@ release:
 **Comando ejecutado:**
 ```bash
 git add .github/workflows/django.yml
-git commit -m "ci: add postgres matrix (14.9, 15) and auto-release job on tags"
+git commit -m "ci: enable automatic releases on every push to egc_test"
 git push origin egc_test
 ```
 
-**Cambios incluidos:**
-- Adición del job `release` (líneas 101-115)
-- Adición de `tags: [ v* ]` en sección `on.push` (línea 5)
-
-**Cambio en la sección `on` (líneas 1-9):**
-```yaml
-on:
-  push:
-    branches: [ main, master, egc_test ]
-    tags: [ v* ]                        # AGREGADO: Dispara en tags v*
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch: {}
-```
-
-**Resultado:**
-- Commit: `24b0c9d`
-- El workflow ahora se activa en: `push` (ramas + tags), `pull_request`, y disparo manual
-
 ---
 
-### 10. Verificación de release creado
-**Acción ejecutada:**
-```bash
-git tag -a v1.0.0 -m "Release version 1.0.0"  # Crear tag anotado
-git push origin v1.0.0                         # Subir tag al remoto
-```
+### 10. Verificación de release automático
+**Resultado esperado:**
 
-**Qué sucede:**
-1. GitHub detecta el push del tag `v1.0.0`
-2. Workflow se dispara automáticamente
-3. Ejecuta jobs `tests` y `build` (con matriz de Postgres)
-4. Si ambos tienen éxito, ejecuta job `release`
-5. Job `release` crea una entrada de Release en GitHub
+1. Cada push a `egc_test` dispara automáticamente el workflow
+2. Tras completar los 3 jobs (`tests`, `build`, `cobertura`), el job `release` se ejecuta
+3. Se crea automáticamente una nueva release en GitHub
 
 **Indicadores de éxito:**
-- ✅ En GitHub Actions: nueva ejecución del workflow
-- ✅ Log del workflow muestra: "Create Release" completado
-- ✅ En GitHub Releases: nuevo release `v1.0.0` visible
-  - URL: `https://github.com/antonioluisjf22/EGC-2324-1830/releases/tag/v1.0.0`
-- ✅ Release etiquetado como "Latest" (si es el más reciente)
-- ✅ Release incluye enlace al commit y cambios asociados
-
-**Estructura de una release creada:**
-- **Nombre:** "Release v1.0.0"
-- **Tag:** v1.0.0
-- **Estado:** Published (no borrador)
-- **Tipo:** Release (no pre-release)
-- **Commitsh:** Referencia automática al commit del tag
+- ✅ En GitHub Actions: job `release` se ejecuta tras cada push a `egc_test`
+- ✅ En GitHub Releases: nuevo release creado automáticamente
+  - URL: `https://github.com/antonioluisjf22/EGC-2324-1830/releases`
+- ✅ Release etiquetado con nombre del branch y timestamp
+- ✅ No requiere intervención manual (totalmente automático)
 
 ---
 

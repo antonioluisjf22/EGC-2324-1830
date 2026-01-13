@@ -108,7 +108,7 @@ jobs:
   release:
     needs: [ tests, build, cobertura ]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.ref == 'refs/heads/egc_test'
     steps:
       - uses: actions/checkout@v4
       - name: Create Release
