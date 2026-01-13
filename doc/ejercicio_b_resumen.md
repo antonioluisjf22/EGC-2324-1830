@@ -179,9 +179,9 @@ git push origin egc_test
 ## Intensificación Técnica (8-10)
 
 ### 8. Configurar releases automáticas
-- **Cambio:** Crear nuevo job `release` (líneas 109-122) que se dispara automáticamente en cada push a `egc_test`.
+- **Cambio:** Crear nuevo job `release` (líneas 109-135) que se dispara automáticamente en cada push a `egc_test`.
 
-**Estructura completa del job (líneas 109-122):**
+**Estructura completa del job (líneas 109-135):**
 ```yaml
 release:
   needs: [ tests, build, cobertura ]           # Espera a que los 3 jobs terminen
@@ -189,10 +189,24 @@ release:
   if: github.ref == 'refs/heads/egc_test'      # Se ejecuta en cada push a egc_test
   steps:
     - uses: actions/checkout@v4                # Descarga el código
+    - name: Configure Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+    - name: Generate Tag                       # Genera tag con timestamp
+      id: tag
+      run: echo "TAG=v$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+    - name: Create Tag                         # Crea y pushea el tag
+      run: |
+        git tag ${{ steps.tag.outputs.TAG }}
+        git push origin ${{ steps.tag.outputs.TAG }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Create Release
       uses: softprops/action-gh-release@v1     # Action oficial para crear releases
       with:
-        name: Release ${{ github.ref_name }}   # Nombre: "Release egc_test"
+        tag_name: ${{ steps.tag.outputs.TAG }}
+        name: Release ${{ steps.tag.outputs.TAG }}
         draft: false                           # No como borrador
         prerelease: false                      # Versión estable
       env:
@@ -205,19 +219,30 @@ release:
    - `if: github.ref == 'refs/heads/egc_test'` → Se ejecuta **automáticamente en cada push a egc_test**
    - No requiere intervención manual
 
-2. **Dependencias:**
+2. **Generación de Tag Dinámico:**
+   - Paso "Generate Tag" crea un tag con timestamp: `v20260113-153022`
+   - Formato: `v[YYYYMMDD-HHMMSS]`
+   - Se guarda en variable de output `${{ steps.tag.outputs.TAG }}`
+
+3. **Configuración de Git:**
+   - Configura identidad del bot para poder hacer commit/push
+   - Username: `github-actions[bot]`
+   - Email: `github-actions[bot]@users.noreply.github.com`
+
+4. **Creación del Tag:**
+   - Paso "Create Tag" crea el tag localmente: `git tag v20260113-153022`
+   - Lo pushea a origin: `git push origin v20260113-153022`
+   - Autentica con `GITHUB_TOKEN`
+
+5. **Dependencias:**
    - `needs: [ tests, build, cobertura ]` → Espera a que los 3 jobs completen exitosamente
    - Si alguno falla, este job no se ejecuta
 
-3. **Action Utilizada:**
+6. **Action Utilizada:**
    - `softprops/action-gh-release@v1` → Librería de terceros para crear releases en GitHub
-   - Crea automáticamente un release con el nombre y configuración indicada
+   - Usa el `tag_name` que especificamos (el tag que acabamos de crear)
 
-4. **Variables Dinámicas:**
-   - `${{ github.ref_name }}` → Nombre del branch (ej: `egc_test`)
-   - `${{ secrets.GITHUB_TOKEN }}` → Token automático para autenticación
-
-5. **Opciones:**
+7. **Opciones:**
    - `draft: false` → Release visible inmediatamente (no borrador)
    - `prerelease: false` → Marca como versión estable en GitHub
 
@@ -226,8 +251,8 @@ release:
 ### 9. Commit y push
 **Comando ejecutado:**
 ```bash
-git add .github/workflows/django.yml
-git commit -m "ci: enable automatic releases on every push to egc_test"
+git add .github/workflows/django.yml doc/ejercicio_b_resumen.md
+git commit -m "ci: enable automatic releases on every push to egc_test + update docs"
 git push origin egc_test
 ```
 
@@ -237,14 +262,16 @@ git push origin egc_test
 **Resultado esperado:**
 
 1. Cada push a `egc_test` dispara automáticamente el workflow
-2. Tras completar los 3 jobs (`tests`, `build`, `cobertura`), el job `release` se ejecuta
-3. Se crea automáticamente una nueva release en GitHub
+2. Se crea un tag dinámico con timestamp
+3. Se pushea el tag a GitHub
+4. Se crea automáticamente una nueva release con ese tag
 
 **Indicadores de éxito:**
 - ✅ En GitHub Actions: job `release` se ejecuta tras cada push a `egc_test`
-- ✅ En GitHub Releases: nuevo release creado automáticamente
+- ✅ En GitHub Tags: nuevo tag creado con formato `v[YYYYMMDD-HHMMSS]`
+- ✅ En GitHub Releases: nuevo release creado automáticamente asociado al tag
   - URL: `https://github.com/antonioluisjf22/EGC-2324-1830/releases`
-- ✅ Release etiquetado con nombre del branch y timestamp
+- ✅ Release etiquetado con nombre del tag y timestamp
 - ✅ No requiere intervención manual (totalmente automático)
 
 ---
@@ -257,7 +284,7 @@ git push origin egc_test
 | **Jobs** | `tests`, `cobertura`, `build`, `release` |
 | **Coverage** | Job `cobertura` con upload a Codacy |
 | **Postgres** | Matriz: 14.9 y 15 |
-| **Releases** | Automáticas al pushear tags `v*` |
+| **Releases** | Automáticas en cada push a `egc_test` con tag dinámico |
 | **Triggers** | `push` (ramas + tags), `pull_request`, `workflow_dispatch` |
 
 ---
@@ -269,4 +296,4 @@ git push origin egc_test
 - Tests básicos
 - Coverage con integración Codacy
 - Build con matriz de Postgres
-- Releases automáticas
+- Releases automáticas con tag dinámico

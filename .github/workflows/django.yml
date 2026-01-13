@@ -111,10 +111,24 @@ jobs:
     if: github.ref == 'refs/heads/egc_test'
     steps:
       - uses: actions/checkout@v4
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Generate Tag
+        id: tag
+        run: echo "TAG=v$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+      - name: Create Tag
+        run: |
+          git tag ${{ steps.tag.outputs.TAG }}
+          git push origin ${{ steps.tag.outputs.TAG }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          name: Release ${{ github.ref_name }}
+          tag_name: ${{ steps.tag.outputs.TAG }}
+          name: Release ${{ steps.tag.outputs.TAG }}
           draft: false
           prerelease: false
         env:
