@@ -41,8 +41,9 @@ jobs:
           pip install -r requirements.txt coverage
       - name: Run tests with coverage
         run: |
-          coverage run -m pytest
-          coverage xml -o coverage.xml
+          cd decide
+          coverage run --branch --source=. manage.py test --keepdb
+          coverage xml
       - name: Upload coverage to Codacy
         if: env.CODACY_PROJECT_TOKEN
         env:
@@ -88,7 +89,7 @@ jobs:
       - name: Run tests with coverage
         run: |
           cd decide
-          coverage run -m pytest
+          coverage run --branch --source=. manage.py test --keepdb
           coverage xml
       - name: Codacy Coverage Reporter
         if: env.CODACY_PROJECT_TOKEN
