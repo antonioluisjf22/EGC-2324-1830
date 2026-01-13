@@ -1,11 +1,12 @@
-DEBUG = True
+
+DEBUG = False
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
-        'USER': 'postgres',
-        'PASSWORD':'',
+        'NAME': 'decide',
+        'USER': 'decide',
+        'PASSWORD': 'decide',
         'HOST': 'db',
         'PORT': 5432,
     }
@@ -15,7 +16,11 @@ STATIC_ROOT = '/app/static/'
 MEDIA_ROOT = '/app/static/media/'
 ALLOWED_HOSTS = ['*']
 
-CSRF_TRUSTED_ORIGINS = ['http://10.5.0.1:8000']
+CSRF_TRUSTED_ORIGINS = [
+    'http://10.5.0.1:8000',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+]
 
 # Modules in use, commented modules that you won't use
 MODULES = [

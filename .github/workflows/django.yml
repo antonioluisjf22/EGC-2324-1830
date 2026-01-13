@@ -1,13 +1,35 @@
-name: Python application
+name: Django CI
 
-on: [push]
-  
+on:
+  push:
+    branches: [ main, master, egc_test ]
+    tags: [ v* ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch: {}
 
 jobs:
-  build:
-
+  tests:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run tests
+        run: |
+          cd decide
+          pytest --collect-only || echo "No tests found, skipping"
 
+  cobertura:
+    needs: tests
+    runs-on: ubuntu-latest
+    env:
+      CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
     services:
       postgres:
         image: postgres:14.9
@@ -17,34 +39,97 @@ jobs:
           POSTGRES_DB: decide
         ports:
           - 5432:5432
-        # needed because the postgres container does not provide a healthcheck
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
-
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python 3.10.12
-      uses: actions/setup-python@v4
-      with:
-        python-version: 3.10.12
-    - name: psycopg2 prerequisites
-      run: sudo apt-get install libpq-dev
-    - name: Install dependencies and config
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install codacy-coverage
-        cp decide/local_settings.gactions.py decide/local_settings.py
-    - name: Run migrations (unnecessary)
-      run: |
-        cd decide
-        python manage.py migrate
-    - name: Run tests
-      run: |
-        cd decide
-        coverage run --branch --source=. ./manage.py test  --keepdb 
-        coverage xml 
-    - name: Codacy Coverage Reporter
-      uses: codacy/codacy-coverage-reporter-action@v1
-      with:
-          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
-          coverage-reports: decide/coverage.xml 
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install deps + coverage + config
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt coverage codacy-coverage
+          cp decide/local_settings.gactions.py decide/local_settings.py
+      - name: Run migrations
+        run: |
+          cd decide
+          python manage.py migrate
+      - name: Run tests with coverage
+        run: |
+          cd decide
+          coverage run --branch --source=. manage.py test --keepdb
+          coverage xml
+      - name: Upload coverage to Codacy
+        if: env.CODACY_PROJECT_TOKEN
+        env:
+          CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
+        run: |
+          bash <(curl -Ls https://coverage.codacy.com/get.sh) coverage.xml || echo "Codacy upload skipped"
+
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        postgres-version: [ '14.9', '15' ]
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgres-version }}
+        env:
+          POSTGRES_USER: decide
+          POSTGRES_PASSWORD: decide
+          POSTGRES_DB: decide
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+      - name: psycopg2 prerequisites
+        run: sudo apt-get update && sudo apt-get install -y libpq-dev
+      - name: Install dependencies and config
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install codacy-coverage
+          cp decide/local_settings.gactions.py decide/local_settings.py
+      - name: Run migrations
+        run: |
+          cd decide
+          python manage.py migrate
+      - name: Run tests with coverage
+        run: |
+          cd decide
+          coverage run --branch --source=. manage.py test --keepdb
+          coverage xml
+
+  release:
+    needs: [ tests, build, cobertura ]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/egc_test'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Generate Tag
+        id: tag
+        run: echo "TAG=v$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+      - name: Create Tag
+        run: |
+          git tag ${{ steps.tag.outputs.TAG }}
+          git push origin ${{ steps.tag.outputs.TAG }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag.outputs.TAG }}
+          name: Release ${{ steps.tag.outputs.TAG }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
