@@ -22,9 +22,11 @@ jobs:
           pip install -r requirements.txt
       - name: Run migrations
         run: |
+          cd decide
           python manage.py migrate --noinput
       - name: Run tests
         run: |
+          cd decide
           pytest -q
 
   cobertura:
@@ -90,8 +92,8 @@ jobs:
       - name: Run tests with coverage
         run: |
           cd decide
-          coverage run --branch --source=. ./manage.py test --keepdb
-          coverage xml -o decide/coverage.xml
+          coverage run -m pytest
+          coverage xml
       - name: Codacy Coverage Reporter
         if: env.CODACY_PROJECT_TOKEN
         uses: codacy/codacy-coverage-reporter-action@v1
