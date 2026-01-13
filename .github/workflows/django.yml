@@ -23,22 +23,37 @@ jobs:
       - name: Run tests
         run: |
           cd decide
-          pytest -q --collect-only || echo "No tests found, skipping"
+          pytest --collect-only || echo "No tests found, skipping"
 
   cobertura:
     needs: tests
     runs-on: ubuntu-latest
     env:
       CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
+    services:
+      postgres:
+        image: postgres:14.9
+        env:
+          POSTGRES_USER: decide
+          POSTGRES_PASSWORD: decide
+          POSTGRES_DB: decide
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-      - name: Install deps + coverage
+      - name: Install deps + coverage + config
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt coverage
+          pip install -r requirements.txt coverage codacy-coverage
+          cp decide/local_settings.gactions.py decide/local_settings.py
+      - name: Run migrations
+        run: |
+          cd decide
+          python manage.py migrate
       - name: Run tests with coverage
         run: |
           cd decide
@@ -53,8 +68,6 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    env:
-      CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
     strategy:
       matrix:
         postgres-version: [ '14.9', '15' ]
@@ -91,15 +104,9 @@ jobs:
           cd decide
           coverage run --branch --source=. manage.py test --keepdb
           coverage xml
-      - name: Codacy Coverage Reporter
-        if: env.CODACY_PROJECT_TOKEN
-        uses: codacy/codacy-coverage-reporter-action@v1
-        with:
-          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
-          coverage-reports: decide/coverage.xml
 
   release:
-    needs: [ tests, build ]
+    needs: [ tests, build, cobertura ]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
