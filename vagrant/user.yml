@@ -5,3 +5,12 @@
     name: decide
     comment: Decide app user
     state: present
+
+- name: Create egc user
+  become: true
+  user:
+    name: egc
+    comment: EGC exam user
+    groups: sudo
+    append: yes
+    state: present
