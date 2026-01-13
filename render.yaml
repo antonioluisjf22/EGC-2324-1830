@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: decide
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: "bash build.sh"
+    startCommand: "cd decide && gunicorn -w 4 --bind 0.0.0.0:$PORT decide.wsgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: DEBUG
+        value: "false"
+      - key: DJANGO_SETTINGS_MODULE
+        value: "decide.settings"
+
+databases:
+  - name: decide_db
+    engine: postgres
+    plan: free
+    region: oregon
+
+env:
+  ALLOWED_HOSTS: decide-app.onrender.com
+  SECRET_KEY: "{{ .Render.SECRET_KEY }}"
+  DATABASE_URL: "{{ .Database.PostgreSQL.ConnectionString }}"
