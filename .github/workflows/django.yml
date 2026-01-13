@@ -44,7 +44,7 @@ jobs:
           coverage run -m pytest
           coverage xml -o coverage.xml
       - name: Upload coverage to Codacy
-        if: ${{ secrets.CODACY_PROJECT_TOKEN != '' }}
+        if: secrets.CODACY_PROJECT_TOKEN != ''
         env:
           CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
         run: |
@@ -89,7 +89,7 @@ jobs:
           coverage run --branch --source=. ./manage.py test --keepdb
           coverage xml -o decide/coverage.xml
       - name: Codacy Coverage Reporter
-        if: ${{ secrets.CODACY_PROJECT_TOKEN != '' }}
+        if: secrets.CODACY_PROJECT_TOKEN != ''
         uses: codacy/codacy-coverage-reporter-action@v1
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
