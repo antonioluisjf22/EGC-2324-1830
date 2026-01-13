@@ -30,6 +30,8 @@ jobs:
   cobertura:
     needs: tests
     runs-on: ubuntu-latest
+    env:
+      CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
@@ -44,7 +46,7 @@ jobs:
           coverage run -m pytest
           coverage xml -o coverage.xml
       - name: Upload coverage to Codacy
-        if: ${{ secrets.CODACY_PROJECT_TOKEN }}
+        if: env.CODACY_PROJECT_TOKEN
         env:
           CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
         run: |
@@ -52,6 +54,8 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    env:
+      CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
     strategy:
       matrix:
         postgres-version: [ '14.9', '15' ]
@@ -89,7 +93,7 @@ jobs:
           coverage run --branch --source=. ./manage.py test --keepdb
           coverage xml -o decide/coverage.xml
       - name: Codacy Coverage Reporter
-        if: ${{ secrets.CODACY_PROJECT_TOKEN }}
+        if: env.CODACY_PROJECT_TOKEN
         uses: codacy/codacy-coverage-reporter-action@v1
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
