@@ -103,3 +103,7 @@ ENV/
 .vagrant
 
 .DS_Store
+
+# Docker settings and compose
+docker/docker-settings.py
+docker/docker-compose.yml
